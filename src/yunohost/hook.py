@@ -25,8 +25,10 @@
 """
 import os
 import re
+import sys
 import tempfile
 from glob import iglob
+from importlib import import_module
 
 from moulinette import m18n
 from yunohost.utils.error import YunohostError
@@ -350,14 +352,12 @@ def hook_exec(path, args=None, raise_on_error=False, no_trace=False,
     # Check and return process' return code
     if hook_returncode is None:
         if raise_on_error:
-            raise MoulinetteError(
-                errno.EIO, m18n.n('hook_exec_not_terminated', path=path))
+            raise YunohostError('hook_exec_not_terminated', path=path)
         else:
             logger.error(m18n.n('hook_exec_not_terminated', path=path))
             return 1
     elif raise_on_error and hook_returncode != 0:
-        raise MoulinetteError(
-            errno.EIO, m18n.n('hook_exec_failed', path=path))
+        raise YunohostError('hook_exec_failed', path=path)
     return hook_returncode
 
 
@@ -418,8 +418,14 @@ def _hook_exec_bash(path, args, no_trace, chdir, env, user, loggers):
 
 def _hook_exec_python(path, args, env, loggers):
 
-    pass
+    dir_ = os.path.dirname(path)
+    name = os.path.splitext(os.path.basename(path))[0]
 
+    if not dir_ in sys.path:
+        sys.path.append(dir_)
+    module = import_module(name)
+
+    return module.main(args, env, loggers)
 
 def _extract_filename_parts(filename):
     """Extract hook parts from filename"""
